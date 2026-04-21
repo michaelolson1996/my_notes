@@ -15,13 +15,13 @@
 
 - Example hierarchy of DNS Delegation
 
--            ROOT (.)
--             /  \
--            /    \
--           /      \
--    gTLD (.com)    cTLD (.us)
--      /    \         /    \
--     .a    .b      .ny    .md
+             ROOT (.)
+              /  \
+             /    \
+            /      \
+     gTLD (.com)    cTLD (.us)
+       /    \         /    \
+      .a    .b      .ny    .md
 
 - There are currently 13 root servers world-wide
 - These 13 root servers are known to every device world-wide due to a special zone file included in all DNS software
@@ -139,16 +139,100 @@ www    IN  A     10.10.10.12
   - The answer to the query along with CNAMEs (aliases), as well as info is authoritative or not (not meaning cached)
   - Error stating the domain name does not exist (NXDOMAIN) as well as any CNAMEs (aliases) to that domain name
   - A temporary error - meaning unable to reach other name servers due to network issues, etc.
+- here is how a recursive query would work from a user's perspective:
+  1. user searches for https://www.example.com in their browser
+  2. the browser sends that hostname to the built-in stub resolver
+  3. the stub resolver queries the locally configured name server
+  4. the local server checks the local tables (its cache) but it is not there
+  5. the local server sends a query to one of the 13 root servers for the hostname
+  6. the root server does not do recursive queries and sends a refferral, meaning a list of servers that are authoritative over that TLD (gTLD or ccTLD)A .com
+  7. the local name server chooses one of the authoritative servers and queries again for the hostname
+  8. the gTLD authoritative server does not do recursive queries and sends a referral, meaning a list of servers that are authoritative over that SLD. example.com
+  9. the local name server chooses one of the authoritative servers from the referral and queries for the A record from that server
+  10. the domain name resolves to a CNAME in the zone file, so the authoritative server sends back the CNAME and A record (example.com)
+  11. the local name server then sends that response, A record with IP and CNAME aliased to the A record to the original client stub resolver
+  12. the stub resolver sends the A record and IP address to the browser
+  13. The browser sends the request to the target server via IP address (xxx.xxx.xxx.xxx)
 
+- the name server used when receiving the referral largely depends on the way the local name server is configured, but there are algorithms in place to determine which server is the best to use.
+
+#### Iterative Queries
+
+- Iterative queries, also referred to as non-recursive queries, are required to be supported on all name servers. Iterative queries may return the answer, any info it has to help the requestor get the answer, or an error.
+- the 4 possible responses to an iterative query are:
+  - the answer accompanied by any CNAMES (aliases), as well as whether the data is authoritative or not (cached)
+  - an error indicating the domain does not exist (NXDOMAIN), may also contain CNAMEs (aliases) to the host
+  - a temporary error indication in the case that DNS servers are not reachable due to network, etc.
+  - a referral, list of 2 or more name servers (and their IPs) that are closer to the domain the client is requesting
+- here is how a iterative query would work from a user's perspective:
+  1. user searches for https://www.example.com in their browser
+  2. the browser sends that hostname to the built-in resolver
+  3. the resolver queries the locally configured name server
+  4. the local server checks the local tables (its cache) but it is not there. the local server returns a referral, or list of the root servers
+  5. the resolver sends a query to the root server for info about www.example.com
+  6. the root server responds with a list of gTLD authoritative servers, aka a referral
+  7. the resolver chooses one of the hosts from the list and sends a request to that chosen server
+  8. the gTLD server responds back with a list of SLD authoritative servers, or a referral
+  9. the resolver chooses a host from the list of SLD servers, and sends its request to that chosen server
+  10. the zone file has www.example.com CNAME record, which points to the example.com A record. Both records are returned to the resolver
+  11. the resolver sends the A record and IP address to the browser
+  12. The browser sends the request to the target server via IP address (xxx.xxx.xxx.xxx)
+
+- stub resolvers cannot follow referrals. Locally configured name servers must support recursive querying because of this fact.
+
+#### DNS Reverse Mapping
+
+- A special domain name is used for reverse mapping to allow for the above queries to work with reverse mapping, and that domain name is called IN-ADDR.ARPA
+- given an ip address, 192.168.122.140, the subnet defines the network, while the last octet provides the host on the network. This is the opposite of DNS hierarchy
+- so the solution is to cut off that last octet, reverse the remaining address, and append the reverse TLD, like so: 122.168.192.IN-ADDR.ARPA, as you can see the hierarchy is mantained.
+- this is a genius solution, when you consider how names are resolved. We can now have this special TLD ARPA, and querying looks like this:
+
+          root (.)
+           /    \
+          /      \
+   gTLD (.com)   ARPA
+                   \
+                    \
+                  IN-ADDR
+                   /   \
+                  /     \
+                .192    .10
+
+- seperate zone files are created for these special PTR records, here is an example of how $ORIGIN and a pointer record could look in a reverse zone file:
+
+$ORIGIN 122.168.192.IN-ADDR.ARPA
+
+140    IN    PTR    www.example.com.
+
+- only one number can map to one domain name with PTR records, unlike A and CNAME resorce records.
+
+- previously described queries (iterative and recursive) work for reverse DNS names, with the ARPA. domain residing under the root like other TLDs.
+- Unlike forward domains, IPv4 addresses are allocated to Regional Internet Registries (RIRs). RIRs are listed:
+  - APNIC - Asia Pacific, www.apnic.net
+  - ARIN - North America & Southern Africa & parts of Carribean, www.arin.net
+  - LACNIC - South America & parts of the Carribean, www.lacnic.net
+  - RIPE - Europe & Middle East & Northern Africa & parts of Asia, www.ripe.net
+  - AFRINIC - Will take responsibility of Africa from ARIN and RIPE, www.afrinic.net
+
+### Zone Maintenance
+
+- AXFR, or full zone transfers, are the old methods of updating slave servers. Changes made will be read by the slave once the SOA RR serial number has been increased, and a full transfer takes place, this happens as frequently as the refresh value is set. AXFR takes place at port 53/TCP
+- IXFR is incremental zone transfer. Slaves and masters attempt IXFR by default, assuming their configs explicitly say not to. They will fallback to AXFR if necessary. As the name suggests, only changed data is transferred. IXFR takes place on port 53/TCP
+- NOTIFY can significantly decrease time to propogate. Master server sends a NOTIFY probe to slaves to say hey, I may have gotten a change. Slave server checks the SOA sn to determine, then performs an AXFR or IFXR if that sn number has increased. 
+- Dynamic Updating becomes a necessity for ISPs and organizations with frequent changes taking place. Classic method is to restart the DNS service in order to read the changes on restart
+- the 2 architectural approaches are to either 1, allowing runtime updating from external programs, or 2, dynamically feed the zone RRs from a DB that can be updated. All records can be added or deleted excluding the SOA, or zone.
+- you can have multiple master servers, but with Dynamic DNS you need a primary master server. The only different characteristic is that this is the server defined in the SOA
 
 
 
 
 ## References
 
-https://www.iana.org/domains/root/db Root Zone Database
-https://www.rfcreader.com/#rfc799 Internet Name Domains
-https://www.rfcreader.com/#rfc1034 DOMAIN NAMES - CONCEPTS AND FACILITIES
-https://www.rfcreader.com/#rfc1035 DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
-https://www.rfcreader.com/#rfc1591 Domain Name System Structure and Delegation
-https://www.icann.org/en/governance/documents/cooperative-research-and-development-agreement-between-icann-and-us-department-of-commerce-15-05-1999-en CRADA - Agreement between ICANN and USDoC
+ - https://www.iana.org/domains/root/db Root Zone Database
+ - https://www.rfcreader.com/#rfc799 Internet Name Domains
+ - https://www.rfcreader.com/#rfc1034 DOMAIN NAMES - CONCEPTS AND FACILITIES
+ - https://www.rfcreader.com/#rfc1035 DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
+ - https://www.rfcreader.com/#rfc1591 Domain Name System Structure and Delegation
+ - https://www.icann.org/en/governance/documents/cooperative-research-and-development-agreement-between-icann-and-us-department-of-commerce-15-05-1999-en CRADA - Agreement between ICANN and USDoC
+ - https://www.rfcreader.com/#rfc1995 Incremental Zone Transfer in DNS
+ - https://www.rfcreader.com/#rfc2136 Dynamic Updates in the Domain Name System (DNS UPDATE)

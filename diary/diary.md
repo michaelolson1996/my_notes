@@ -4,6 +4,10 @@
   - [○] 1.
 - [○] Read (part of) a tech book
   - [○] 1.
+- [○] Read a rfc
+  - [○] 1.
+- [○] Read a phrak article
+  - [○] 1.
 
 ## Todo List
 
