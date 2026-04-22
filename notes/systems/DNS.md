@@ -122,7 +122,7 @@ www    IN  A     10.10.10.12
 
 - SRV RRs are relatively new and used to map services to hosts
 
-### DNS Protocol
+## DNS Protocol
 
 - DNS protocol by default uses port 53/UDP with a block size limit of 512 bytes. If a response exceeds this size, TCP is negotiated and used. Zone maintenance operations use port 53/TCP for reliability.
 - DNS systems support 3 types of queries:
@@ -130,7 +130,7 @@ www    IN  A     10.10.10.12
   - iterative queries - If the name server has the answer, it will return it. If it does not, it will send any info it deems to be useful for finding the answer, nothing more. All name servers must support these queries.
   - inverse queries - deemed obsolete, were used to find domain names via resource records.
 
-#### Recursive Queries
+### Recursive Queries
 
 - will either be fully answered or get a returned error
 - name servers are not required to support recursive queries
@@ -156,7 +156,7 @@ www    IN  A     10.10.10.12
 
 - the name server used when receiving the referral largely depends on the way the local name server is configured, but there are algorithms in place to determine which server is the best to use.
 
-#### Iterative Queries
+### Iterative Queries
 
 - Iterative queries, also referred to as non-recursive queries, are required to be supported on all name servers. Iterative queries may return the answer, any info it has to help the requestor get the answer, or an error.
 - the 4 possible responses to an iterative query are:
@@ -180,7 +180,7 @@ www    IN  A     10.10.10.12
 
 - stub resolvers cannot follow referrals. Locally configured name servers must support recursive querying because of this fact.
 
-#### DNS Reverse Mapping
+### DNS Reverse Mapping
 
 - A special domain name is used for reverse mapping to allow for the above queries to work with reverse mapping, and that domain name is called IN-ADDR.ARPA
 - given an ip address, 192.168.122.140, the subnet defines the network, while the last octet provides the host on the network. This is the opposite of DNS hierarchy
@@ -223,7 +223,51 @@ $ORIGIN 122.168.192.IN-ADDR.ARPA
 - the 2 architectural approaches are to either 1, allowing runtime updating from external programs, or 2, dynamically feed the zone RRs from a DB that can be updated. All records can be added or deleted excluding the SOA, or zone.
 - you can have multiple master servers, but with Dynamic DNS you need a primary master server. The only different characteristic is that this is the server defined in the SOA
 
+## DNS Types
 
+### Master Name Server
+
+- the term master relates to the zone file location rather than any operational characteristics, a master may be expected to make zone transfers to other servers
+- a master server obtains zone data from a local zone, whereas a slave server obtains zone data via zone transfers
+- zone file changes need to be synchronized between zone masters
+- if caching behavior is permitted and recursive queries are enabled, a master server will perform all actions to resolve a domain for a request
+- if caching behavior is permitted and recursive queries are disabled, a master server will return: a answer from cache, a referral, or an error
+- if caching behavior is not permitted and recursize queries are disabled, a master server will return either a referral or an error
+
+### Slave Name Server
+
+- master servers require reloading for zone changes, slave servers are updated via zone transfers. So while a master is inaccessable a slave will act as the authoritative server to a zone. This authoritative capability time period is defined in the zone SOA rr, expiry value
+- a slave server attempts to update its zone records when the refresh value from the SOA rr has been reached, and if the slave server has not reached the master server by the time the expiry time from the SOA rr has been reached, it will stop serving requests for that zone or responding to queries
+- when multiple  slave servers are in play, the master server can be hidden from public view. That way, if a zone file is corrupted in a slave server remediation becomes simpler, whereas if the master server gets corrupted that could mean requiring backup files
+- the allow-notify param in slave servers specify which servers may send a NOTIFY, or master servers. Slave servers only accept NOTIFYs from master servers
+
+### Caching Name Servers
+
+- a server can cache records that have been requested, and adheres to the record TTLs for how long to cache
+- a caching server only sets the response to authoritative when the records are directly from the master or slave, not from cache
+- caching increases DNS performance and reduces network loads
+- if a caching server is reloaded or restarted, the cache is wiped clean and the process starts over
+- setting the recursion option to yes (default BIND behavior) will enable caching for that server
+- if a server provides caching services, it must support recursive queries
+- most common configs are: a general purpose (master or slave) server that also caches, and a caching-only server typically to support stub-resolvers
+- cache poisoning and other malicious attacks are opened when caching is enabled
+
+### Forwarding (Proxy) Name Servers
+
+- forwards all queries to another name server and caches the results
+- since the server is local, this can increase resolution speeds and decrease external network traffic
+- can be used to ease maintenance, external changes can be resolved with a simple config change, no responsibility of zone management
+
+### Stealth (DMZ or Split) Name Servers
+
+- a stealth server does not appear in any publicly visible NS resource records for the domain
+- a stealth zone will provide DNS services to its internal network, and is configured to be used by internal services, then usually a separate DNS server is used externally
+- the purpose of a stealth DNS server is to conceal the internal network structure and identities
+
+### Authoritative-only Name Servers
+
+- authoritative-only name servers do not cache, and provides authoritative-only responses to queries (master or slave)
+- typically used in 2 scenarios: split name servers to provide perimeter security in the DMZ, or high-performance (ie root servers, TLD servers, high volume sites)
 
 
 ## References

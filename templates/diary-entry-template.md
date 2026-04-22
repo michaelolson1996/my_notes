@@ -1,17 +1,19 @@
-## Weekly TodDos
+## Daily TodDos
 
-- [○] watch 5 tech podcasts
-  - [○] 1.
-  - [○] 2.
-  - [○] 3.
-  - [○] 4.
-  - [○] 5.
+- [○] listen to a tech podcast
+  - [○] 1. 
 - [○] read a tech book
-  - [○] 1.
+  - [○] 1. 
+- [○] read a rfc
+  - [○] 1. 
+- [○] read a tech article
+  - [○] 1. 
+- [○] brief read through of open source software
+  - [○] 1. 
 
 ## Todo List
 
-- [ ]
+- [○] 
 
 ## What Did You Work On Today?
 
