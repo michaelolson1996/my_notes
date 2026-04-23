@@ -269,6 +269,110 @@ $ORIGIN 122.168.192.IN-ADDR.ARPA
 - authoritative-only name servers do not cache, and provides authoritative-only responses to queries (master or slave)
 - typically used in 2 scenarios: split name servers to provide perimeter security in the DMZ, or high-performance (ie root servers, TLD servers, high volume sites)
 
+## Common DNS Tasks
+
+### Working with Subdomains
+
+- domain name owners are able to pass domain responsibilites to a subdomain owner, subdomain owner takes responsibility of all zone files
+- virtual subdomains use a sigle zone file for domain and subdomain to provide subdomain addressing
+- subdomains are invisible to TLD name servers
+- when working with virtual subdomains, they can be included directly in the same zone file as the actual domain, typically adding a $ORIGIN initialization
+- glue records are A records (or AAAA if IPv6) which are required for every name server within a domain
+- glue records are required in order to properly direct requests to the subdomain name servers, if they are not included the hosts would never know how to reach the subdomain name servers
+- virtual domains eliminate the need of additional nameservers while still taking advantage of the naming scheme
+- the downside of virtual domains is that any reload to either zone requires reload of an otherwise unchanged zone
+- the $INCLUDE directive may be included to add files to the zone file
+
+### Mail-Server Failover
+
+- multiple mail servers may be added with a preference number, the lower the number the higher the preference. If the main MX server fails, those servers with higher priority numbers should be configured to hold onto the mail until the main server is back up, then forward those messages
+
+### Reverse Subnet Maps
+
+- when dealing with reverse subnet mappings, as opposed to the easy 122.168.192.IN-ADDR.ARPA C class naming convention, lets say there are 4 domains with a /26
+- as opposed to naming a host 1.122.168.192.IN-ADDR.ARPA, it would now include the ip address, broadcast address, and subnet mask within the name. A assignee dns name server may contain records like so (assume the assignee name server domain is example.net):
+
+$ORIGIN 122.168.192.IN-ADDR.ARPA
+
+64/26   IN   NS   ns1.example.com
+64/26   IN   NS   ns2.example.com
+
+65      IN   CNAME   65.64/26
+66      IN   CNAME   66.64/26
+;...
+126     IN   CNAME   126.64/26
+
+- this method forces the CNAME lookup to use the name servers defined for the subnet, ns1 and ns2.
+- The assigner zone file may look like the following:
+
+$ORIGIN 64/26.122.168.122.IN-ADDR.ARPA
+
+        IN   NS    ns1.example.com
+        IN   NS    ns2.example.com
+
+65      IN   PTR   ftp
+66      IN   PTR   www
+;...
+126     IN   PTR   fred
+
+### Load Balancing
+
+- for load balancing mail, there are 2 possible strategies. Consistent across both strategies is the same preference numbers for MX servers. For demonstration purposes there are three MX servers: mail1, mail2, mail3. These servers ip's in the same order are: 10.10.10.1, 10.10.10.2 and 10.10.10.3
+- The first method is different resource records for each server:
+
+       IN    MX  10   mail1
+       IN    MX  10   mail2
+       IN    MX  10   mail3
+
+mail1  IN    A      10.10.10.1
+mail2  IN    A      10.10.10.2
+mail3  IN    A      10.10.10.3
+
+- note the fact that the preference number is consistent across all three servers, typically uses a round robin fashion of load balancing. The second example uses one MX rr and achieves the same objective:
+
+       IN    MX  10   mail
+
+mail   IN    A      10.10.10.1
+       IN    A      10.10.10.2
+       IN    A      10.10.10.3
+       
+- the first approach puts the load on the client sending the request in order to determine which MX server it will use, the second method puts the load on the name server.
+- other services can be load balanced in a similar fashion (i.e. a website via multiple A records)
+- the config option bind uses is called rrset-order, this allows you to manipulate how load is balanced
+- SRV records serve an importance in load balancing and partly came about due to LDAP, they contain a weight and a priority for fine grained handling
+- The rrset-order directive allows users to set the LB order, see example:
+
+
+options {
+  rrset-order { order fixed; }  ; order services were defined
+  rrset-order { order cyclic; } ; round robin
+  rrset-order { order random; } ; randomly chosen
+}
+
+- caching can significantly impact the effectiveness of DNS load balancing, so at times TTLs can be set to zero, or under 60 seconds
+- DNS load balancing happens at the network level, it is incapable of understanding services and resource utilization, you would need a layer 7 load balancer for that type of setup
+
+### SPF Record
+
+- A Sender Policy Framework (SPF) is for a domain and its mail servers. Its purpose is to legitimize sources of email from that domain. The intent is to allow a receiving Message Transfer Agent to verify the source IP is authorized to send mail from the domain it claims to be part of
+- SPF records were deprecated in 2014, the current standard is to define the SPF within a TXT RR
+- the SPF fields are as follows:
+  - v=spf1 field, mandatory, specifies the version (currently only supported version is 1)
+  - pre field, defaults to + (pass), can also be - (fail), ~ (softfail) and ? (neutral)
+  - type field, specifies the mechanism type to use for verifying the sender
+  - mod field, two options available:
+    - redirect redirects verification to more processing in the result of a failure or to provide a single domain-wide spf policy
+    - exp should come last, defines the name of a site to redirect users to notify that they are not authorized to send mail through the domain
+- the SPF type param defines either the mechanism to be used to verify the sender, or to modify the verification sequence
+  - basic mechanisms, do not define a verification mechanism but affect the verification sequence:
+    - include:domain recurse testing using supplied domain, common when clients send mail through ISP servers
+    - all terminates a test sequence if no positive results have been found previously
+  - sender mechanisms define a verification mechanism
+    - ip4 type uses ip or range of ips for verification, ie ip4:192.168.122.0/24
+    - ip6 type uses same concept as ip4 type, but it is ip6
+    - type a format verifies based on A RRs within the domain. Benefits, if IP changes this need not be updated, downsides is it does add 1 additional check for each verification
+    - type mx format verifies based on MX and A RRs. This is the MX RR for the domain, may not be the same as the SMTP for the domain
+
 
 ## References
 
