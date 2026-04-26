@@ -1,5 +1,117 @@
 # DNS
 
+### Name Space
+
+- the 3 main functions of DNS are: Name space, Name Registration and Name resolution
+- Domain names are interpreted right to left
+- Domain name format, right to left, is root, TLD, Second-Level domain (TLD + SLD = zone apex), Third-Level domain
+- Peices of a domain separated by the dot (.) delimiters are called labels
+- the FQDN is the absolute reference to the domain
+- each label must be less than or equal to 63 characters and letters, numbers, and hyphens are allowed in labels
+- A FQDN can be less than or equal to 255 characters
+- the root's label is called label of null
+- DNS is a collection of databases forming a tree like structure that is indexed by domain names
+- There is a site root-servers.org you can go and get detailed info regarding servers running as DNS root servers, very cool!
+- the authoritative name server is the one holding the DNS name db specific to the requested domain, and the one that completes the process of converting a name into an address
+
+### Name Resolution
+
+#### Local Name Resolution
+
+- occurs locally on end users machine without external contact
+- operates with a host table, a simple text file which maps hosts to addresses
+- prior to DNS, all machines downloaded a host table
+- wildcard entries are not supported in local host tables
+- can be used for small local networks
+- improve performance
+- fallback last resort method when DNS fails
+
+#### DNS Resolvers
+
+- The DNS resolver sits between the end user and the DNS tree
+- The DNS when receiving a request will first see if it can resolve the query
+- If the DNS resolver cannot, it will act on behalf of the client to perform the steps to getting the resolution
+- the DNS resolver contains a copy of the root hints file with the 13 root servers
+
+#### Iterative Name Resolution
+
+- returns a referral (list of servers to contact for answer, up to client to choose server from list)
+- it is the clients responsibility to keep querying servers until the required info is obtained
+
+#### Recursive Name Resolution
+
+- the server when not having an answer assumes the responsibility of the client and handles the requests
+- it is the server's responsibility to obtain the DNS info requested by the client
+
+#### Caching
+
+- when a name is resolved, the DNS server will cache the data so as not to perform the queries for every request
+- clients cache data as well
+- negative caching is the act of caching failed requests
+- cache-only servers are commonly used to reduce load, they do not act authoritative over any domains
+- TTL determines the time to live of a resource record, and controls how long a resource record may be cached
+- reverse queries are not cached and negative answers are cached with a different TTL
+
+#### DNS Name Resolution Workflow
+
+- end user types a name into the browser
+- browser checks its cache
+- browser asks the client OS
+- OS checks its cache and host table
+- OS sends a recursive query to the DNS resolver
+- Resolver checks its cache
+- Resolver sends request to root server based on the root hints file
+- root server sends back a referral
+- Resolver sends request to a TLD server from the referral list
+- TLD server responds with a referral to the authoritative name server
+- Resolver sends request to the authoritative name server
+- Authoritative name server responds back with an answer containing the address
+- Resolver then caches the information and forwards the request to the client
+- OS stores the information in its cache and passes the data to the browser
+- browser will typically then cache the information as well
+
+#### Reverse Name Resolution
+
+- Special TLD known as in-addr.arpa that treats IPv4 octets as separate domains
+- the octets are flipped because the most important info is on the right initially, so DNS wants the data reversed
+- reverse names are not required and may not exist for certain domains
+
+### Name Registration
+
+#### Domain Name Registration Hierarchy
+
+- At the top is ICANN stands for Internet Corporation for Assigned Names and Numbers
+- Main role of ICANN is to oversee the huge and complex interconnected network of unique identifiers that allows computers on the internet to find one another
+- ICANN is responsible for managing generic TLDs and country code TLDs
+- ICANN manages how root servers function
+- ICANN coordinates allocation of IP addresses to avoid repitition and clashes
+- ICANN maintains a central repository of IP addresses
+- Beneath ICANN are the 5 regional internet registries
+- These 5 RIRs are responsible for obtaining IP addresses from ICANN and allocating them to ISPs across a specific geographic region
+- Subordinate to the registries are the registrars, ICANN accredited orgs responsible for processing the registration of domain names (GoDaddy, NameCheap, Bluehost, etc.)
+- Beneath registrars are resellers, third party companies that offer domain name registration services through registrars, i.e. Route 53
+- At the bottom of the hierarchy are the registrants, people who register domains
+
+#### Domain Name Registration Process
+
+- registrant chooses a domain name and submits a request to a reseller or a registrar
+- Registrar registers the name and then creates a whois record
+- whois record contains info on registrant, registration date and expiry date
+- registrar will then send the domain request to the appropriate registry, the registry will then file the info
+- The registry will add the domain zone file to the master servers which will tell other servers where your website is located
+
+### DNS Storage
+
+- DNS data is stored in a database that is known as a zone
+- there are 2 types of zones, forward lookup zones and reverse lookup zones
+- zones are a collection of resource records
+- Common RR format contains: name, type, class, ttl, rdlength (resouse data length), rdata (actual data)
+- SOA record is start of authority, should be first RR and indicates beginning of a zone
+- One SOA record per zone
+- SOA - <domain name> <TTL> <class> SOA <m-name (primary authoritative name server)> <r-name (email of admin responsible for the zone)> (<serial number> <refresh interval> <retry interval> <expire interval> <minimum>)
+- every zone must have a minimum of 2 NS resource records, NS records ensure the availability of a domain
+- name servers typically reside in topologically separate networks for resiliency
+
 ## DNS Hierarchy
 
 - DNS uses a hierarchical naming structure. The order is root (typically a silent .), top-level domains (TLDs), second-level domains (SLDs), and any number of lower level domains.
