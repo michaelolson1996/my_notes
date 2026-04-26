@@ -1,9 +1,5 @@
 # DNS
 
-## High Level
-
-- the concept of name servers were created in the mid 1970's
-
 ## DNS Hierarchy
 
 - DNS uses a hierarchical naming structure. The order is root (typically a silent .), top-level domains (TLDs), second-level domains (SLDs), and any number of lower level domains.
@@ -372,6 +368,78 @@ options {
     - ip6 type uses same concept as ip4 type, but it is ip6
     - type a format verifies based on A RRs within the domain. Benefits, if IP changes this need not be updated, downsides is it does add 1 additional check for each verification
     - type mx format verifies based on MX and A RRs. This is the MX RR for the domain, may not be the same as the SMTP for the domain
+
+
+
+
+
+
+
+
+## DNS Security
+
+### DNS Security Threats
+
+
+| Number | Area             | Threat                                                     | Classification       | Solutions                                                |
+|:------:|------------------|------------------------------------------------------------|----------------------|----------------------------------------------------------|
+|   1    | Zone files       | File corruption (malicious or accidental)                  | Local                | System Administration                                    |
+|   2    | Zone transfers   | IP address spoofing                                        | Server-to-Server     | Network Architecture, Transaction signatures, or disable |
+|   3    | Dynamic updates  | Unauthorized updates, IP address spoofing                  | Server-to-Server     | Network Architecture, Transaction signatures, or disable |
+|   4    | Remote queries   | Cache poisoning, data interception, subverted master/slave | Server-Client        | DNSSEC                                                   |
+|   5    | Resolver Queries | MitM, Spoofing, cache poisoning, subverted master/slave    | Remote Client-Client | DNSSEC                                                   |
+
+### DNS Security Classifications
+
+- local threats (1) are typically the easiest to prevent, this is sys admin tasks such as file permissions, strong security at the OS level, bind chroot jail
+- server-server (2) zone transfers can be protected via tools such as TLS, TSIG and TKEY, and BIND configuration options
+- server-server (3) dynamic DNS can be protected via network architecture, TLS, TSIG and SIG(0), and implementing stealth name servers
+- server-client (4) the relationship between orgs and end users is very important, DNSSEC can increase trust and ensure security is protecting against things such as cache poisoning
+- client-client (5) this involves the concept of a security-aware resolver
+
+### Administrative Security
+
+- maintaining up to date software is crucial to ensure proper security. Keeping up to date on newly released exploits as well as maintaining a living upgrade checklist will dramatically increase speed and reduce risk. Block the BIND version from being publicly available
+- limiting functionality will reduce risks, for example instead of running a master-slave DNS strategy, you may want to consider having multiple masters and no zone transfers in the strategy. This can reduce an attacking surface
+- use defensive configuration as opposed to relying on the default behavior of the currently installed software. If an option is disabled by default, you can explicitly set that in the config to explicitly state that the feature is disabled. This can help notify admins of the config as well as prevent changes in the case future software updates alter their default behavior
+- global denial of actions, then specifying allow settings within individual zones implements the deny-all default mode and is a good security measure to take
+- limiting permissions takes two forms, limiting outside users from being able to edit or view files used by the DNS software, and containment which means limiting DNS capabilities in the case that a name server were to be compromised
+- DNS software (BIND) can be run in three different ways: run as root (not recommended), run as a unique user (standard), or run in a sandbox or chroot jail
+- the concept of chroot limits the software to a single directory, all required files then need to exist within that directory
+- software diversity should be implemented, for example running different OSes per DNS server seeing as an OS vulnerability is probably not available across all OSes
+- Intrusion Detection Software (IDS) can be deployed to monitor for any undesirable actions being performed
+
+### Cryptography
+
+- cryptographic algorithms can not be provably secure, rather algorithms are tested against and then deemed either secure or insecure. all techniques are based on a concept of computationally infeasable
+- cryptography is used for three purposes: confidentiality, authentication and data integrity
+- for DNS, only authenticity and data integrity are considered. Where confidentiality is required would be over TLS, BIND does not support this
+- there are two classes of key-based cryptographic methods: symmetric and asymmetric
+- symmetric key algorithms, commonly called single-key or shared-key, use a single shared key to encrypt and decrypt data. Examples of symmetric key algorithms are DES, AES, IDEA and RC4, with typical key sizes being 64, 128, or 192 bits
+- shared secrets are utilized in DNS TSIG operations, and are defined at the global level as opposed to per-zone
+- these keys are stored in different files and granted very restricted access, DNS does not care how the keys are shared between DNS, they can be distibuted via a piece of paper
+- asymmetric encryption, also called public-key encryption, works by having a public key (viewable to anyone) and a private key (not shared)
+- the most widely used asymmetric encryption algorithms are RSA and elliptic curves, with typical key sizes being 512, 1024, or more bits
+- encryption systems require a lot of computation, and since DNS does not require confidentiality message digests, or hashes can be used
+- a message digest is a one-way hash. The sender performs a hash function on the plain text data, and sends both to the receiver. The receiver then performs the same hashing function on the plain text and compares it to the result provided by the sender. This can verify the integrity of the message
+- there are two methods for ensuring the authenticity of the sender. For symmetric encryption Message authentication Codes (MACs) are used, for asymmetric encryption Digital Signatures are used
+- MAC is the result of combining the plain text with the privately shared key in the hashing algorithm, which can then be verified on the other end
+- common forms of MAC are the HMAC-SHA256 and HMAC-SHA512. MACs are used for TSIG
+- digital signatures perform the hashing function on the plain text, then encrypt the result via the private key. The receiver can the decrypt the message via the public key, and perform the hash function on the included plain text to verify the result matches the provided hashed text
+- digital signatures are used for SIG(0) and DNSSEC
+- a replay attack is when a transaction is captured and replayed at a later time, to circumvent this attack all systems must be time synchronized
+
+### Securing Zone Transfers
+
+- There are three methods of securing zone transfers cryptographically:
+  - TSIG - MAC, shared key, symmetric encryption, no changes to zone files or rr's, change is applied in config file
+  - SIG(0) - Digital Signature, assymetric encryption, supported for DDNS but not for full zone transfers
+  - TKEY - must be authenticated with TSIG or SIG(0), not widely implemented
+
+- Transaction Signatures (TSIG) use a Message Authentication Code (MAC) and a shared key to authenticate and ensure integrity of data
+- TSIG can be used for securing zone transfers (AXFR) and Dynamic DNS (DDNS) for authorization and integrity checks
+- DNSSEC is performed on RR sets rather than individual RRs
+
 
 
 ## References
