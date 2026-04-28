@@ -557,10 +557,13 @@ options {
 ## References
 
  - https://www.iana.org/domains/root/db Root Zone Database
+ - https://www.iana.org/assignments/registrar-ids/registrar-ids.xhtml Registrar IDs
+ - https://www.iana.org/numbers IANA Numbers
  - https://www.rfcreader.com/#rfc799 Internet Name Domains
  - https://www.rfcreader.com/#rfc1034 DOMAIN NAMES - CONCEPTS AND FACILITIES
  - https://www.rfcreader.com/#rfc1035 DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION
  - https://www.rfcreader.com/#rfc1591 Domain Name System Structure and Delegation
  - https://www.icann.org/en/governance/documents/cooperative-research-and-development-agreement-between-icann-and-us-department-of-commerce-15-05-1999-en CRADA - Agreement between ICANN and USDoC
+ - https://www.ripe.net/community/internet-governance/internet-technical-community/the-rir-system/ The RIR System
  - https://www.rfcreader.com/#rfc1995 Incremental Zone Transfer in DNS
  - https://www.rfcreader.com/#rfc2136 Dynamic Updates in the Domain Name System (DNS UPDATE)
